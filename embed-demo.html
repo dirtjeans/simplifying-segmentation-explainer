@@ -35,33 +35,37 @@ body{font:400 16px/1.45 "FK Grotesk",sans-serif;color:#1A2C32;background:#fff;fo
   if (!frame) return;
   var info = null;
 
-  // Height of a fixed or sticky navigation bar at the top of the page, if there is one.
-  // To set it by hand, add data-top-offset="80" (pixels) to the iframe.
-  function topOffset() {
+  // A fixed or sticky bar at the top of the page (the site navigation), if there is one.
+  // To set its height by hand, add data-top-offset="80" (pixels) to the iframe.
+  function topBar() {
     var set = frame.getAttribute('data-top-offset');
-    if (set) return parseFloat(set) || 0;
+    if (set) return { bottom: parseFloat(set) || 0, fixed: false };
     var el = document.elementFromPoint(Math.round(window.innerWidth / 2), 2), n = 0;
     while (el && el !== document.documentElement && n++ < 40) {
       var pos = getComputedStyle(el).position;
       if (pos === 'fixed' || pos === 'sticky') {
         var b = el.getBoundingClientRect().bottom;
-        return b > 0 && b < window.innerHeight * 0.4 ? Math.round(b) : 0;
+        if (b > 0 && b < window.innerHeight * 0.4) return { bottom: Math.round(b), fixed: pos === 'fixed' };
+        break;
       }
       el = el.parentElement;
     }
-    return 0;
+    return { bottom: 0, fixed: false };
   }
 
   function size() {
     if (!info) return;
-    var h;
+    var bar = topBar(), h;
+    // A fixed bar floats over the page. If it would cover the top of the frame, push the frame down by that much.
+    var docTop = wrap.getBoundingClientRect().top + window.scrollY;
+    wrap.style.paddingTop = bar.fixed && docTop < bar.bottom ? (bar.bottom - Math.round(docTop)) + 'px' : '';
     if (info.layout === 'stacked') {
       // Phones and narrow frames: the frame is as tall as its content, so only the page scrolls.
       if (!info.height) return;
       h = info.height;
     } else {
       // Wide frames: 16:9 plus the control bar, and never taller than the window.
-      h = Math.max(320, Math.min(Math.round(frame.clientWidth * 9 / 16) + info.bar, window.innerHeight - topOffset()));
+      h = Math.max(320, Math.min(Math.round(frame.clientWidth * 9 / 16) + info.bar, window.innerHeight - bar.bottom));
     }
     frame.style.aspectRatio = 'auto';
     frame.style.height = h + 'px';
