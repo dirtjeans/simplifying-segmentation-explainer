@@ -45,8 +45,14 @@ committed, at the mount path set for the environment.
 - Every public file in the repo is published. Files and folders that start
   with a dot, and `webflow.json`, are not.
 - Paths inside the page are relative, so the mount path can change without
-  code edits. The page works with or without a trailing slash.
+  code edits. Webflow Cloud adds a `<base>` tag for the mount path, and the
+  page relies on it there.
 - Pushing to the connected branch deploys a new version.
+- The Illumio site adds its usual analytics and marketing tags to the page
+  on its own. None of them are in this repo.
+
+Live address:
+<https://www.illumio.com/interactive-tools/simplifying-segmentation-explainer>
 
 ## Run it locally
 

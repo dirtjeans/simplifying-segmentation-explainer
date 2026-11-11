@@ -1437,8 +1437,9 @@ const IC = {
   dl:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg>'
 };
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-// The page may be served at /path or /path/. REL keeps the cover's relative path right in both cases.
-const REL = (p => p.endsWith('/') || /\.[a-z0-9]+$/i.test(p) ? '' : p.slice(p.lastIndexOf('/') + 1) + '/')(location.pathname);
+// Webflow Cloud adds a <base> tag for the mount path, so plain relative paths work there.
+// Without one, the page may be served at /path or /path/. REL keeps the cover's path right in both cases.
+const REL = document.querySelector('base[href]') ? '' : (p => p.endsWith('/') || /\.[a-z0-9]+$/i.test(p) ? '' : p.slice(p.lastIndexOf('/') + 1) + '/')(location.pathname);
 const GUIDE = 'https://www.illumio.com/resource-center/simplifying-segmentation', COVER = REL + 'img/simplifying-segmentation-cover.jpg';
 new Image().src = COVER; // fetch the cover early so it is ready for the ending
 const titleHTML = copy.firstElementChild.innerHTML;
