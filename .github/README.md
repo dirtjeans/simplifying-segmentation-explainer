@@ -13,7 +13,9 @@ a generic enterprise. It ends with a call to action that links to the e-book:
 | --- | --- |
 | `index.html` | The whole explainer: markup, styles, script, and the soundtrack |
 | `img/` | The e-book cover shown on the ending screen |
+| `embed-demo.html` | Test page that frames the explainer with the embed snippet |
 | `webflow.json` | Tells Webflow Cloud this is a static app (not published) |
+| `.github/embed-snippet.html` | The snippet to paste into a Webflow page (not published) |
 | `.github/README.md` | This file (not published) |
 
 There is no build step and no framework. The soundtrack and sound effects are
@@ -53,6 +55,35 @@ committed, at the mount path set for the environment.
 
 Live address:
 <https://www.illumio.com/interactive-tools/simplifying-segmentation-explainer>
+
+## Embedding it in a Webflow page
+
+To show the explainer with the site navigation and footer, frame it inside a
+normal Webflow page. Paste `.github/embed-snippet.html` into one Code Embed
+element on that page.
+
+What the snippet and the explainer do together:
+
+- The frame's address ends in `?embed=1`. That hides the explainer's own logo,
+  since the site navigation already shows one.
+- **No second scroll bar.** On wide screens the frame is 16:9 plus the control
+  bar, and never taller than the window. On phones and narrow frames it is as
+  tall as its content, so only the page scrolls.
+- **Campaign tags carry over.** Any `utm_` tags on the host page's address are
+  added to the e-book link. The same happens when the explainer is opened on
+  its own with `utm_` tags.
+- **Full screen** works because the frame allows it. Without that permission
+  the button hides itself.
+
+Things the web team should know:
+
+- Space and the arrow keys work only after a click inside the frame.
+- The site adds its analytics tags to the explainer page as well as the host
+  page, so a framed visit can count twice. Exclude the explainer's address in
+  the tag setup if that matters.
+- `embed-demo.html` is a test page that uses the same snippet with stand-in
+  bars for the navigation and footer. It is published but marked noindex.
+  Delete it from the repo once the real page exists.
 
 ## Run it locally
 

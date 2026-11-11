@@ -172,6 +172,17 @@ a.btn{text-decoration:none}
   .rail{grid-column:1 / -1;grid-row:1}
   .ch .t{display:none}
 }
+/* Embed mode: the page is shown in a frame on another page (its address ends in ?embed=1). */
+html.embed .logo{visibility:hidden} /* the host page already carries the logo in its navigation */
+@media (max-aspect-ratio:11/10),(max-width:860px){
+  /* Once the host page has answered, the stacked layout takes its natural height, so the frame never needs its own scroll bar. */
+  html.hosted,html.hosted body{height:auto}
+  html.hosted .app{height:auto}
+  html.hosted .wrap{overflow:visible}
+  html.hosted .stage{min-height:0}
+  html.hosted .app:fullscreen .wrap{overflow-y:auto}
+  html.hosted .app:fullscreen .stage{min-height:100%}
+}
 @media (prefers-reduced-motion:reduce){
   .view>*,.status,.readout,.cover img{transition-duration:.01s !important;transition-delay:0s !important}
 }
@@ -1440,7 +1451,12 @@ const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 // Webflow Cloud adds a <base> tag for the mount path, so plain relative paths work there.
 // Without one, the page may be served at /path or /path/. REL keeps the cover's path right in both cases.
 const REL = document.querySelector('base[href]') ? '' : (p => p.endsWith('/') || /\.[a-z0-9]+$/i.test(p) ? '' : p.slice(p.lastIndexOf('/') + 1) + '/')(location.pathname);
-const GUIDE = 'https://www.illumio.com/resource-center/simplifying-segmentation', COVER = REL + 'img/simplifying-segmentation-cover.jpg';
+const EMBED = /[?&]embed=1(?:&|$)/.test(location.search); // set by the embed snippet on a host page
+// Campaign tags (utm_...) on this page's address, or on the page that frames it, are carried over to the e-book link.
+const UTM = (() => { const out = new URLSearchParams(), take = q => { try { for (const [k, v] of new URLSearchParams(q)) if (/^utm_[a-z0-9_]+$/i.test(k) && !out.has(k)) out.set(k, v.slice(0, 200)); } catch (e) {} };
+  if (EMBED) try { take(parent.location.search); } catch (e) {}
+  take(location.search); return out.toString(); })();
+const GUIDE = 'https://www.illumio.com/resource-center/simplifying-segmentation' + (UTM ? '?' + UTM : ''), COVER = REL + 'img/simplifying-segmentation-cover.jpg';
 new Image().src = COVER; // fetch the cover early so it is ready for the ending
 const titleHTML = copy.firstElementChild.innerHTML;
 function viewHTML(b){
@@ -1458,9 +1474,9 @@ function viewHTML(b){
       (s[2] ? `<ul class="tips">${s[2].map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '') +
       `<div class="pips" role="group" aria-label="Actions in this step">${p.steps.map((x, i) => `<button class="${i < b.si ? 'done' : i === b.si ? 'cur' : ''}" data-go="${b.p + 1}.${i + 1}" aria-label="Action ${i + 1}: ${esc(x[0])}"${i === b.si ? ' aria-current="step"' : ''}>${i + 1}</button>`).join('')}<span class="count">Action ${b.si + 1} of ${p.steps.length}</span></div>`;
   }
-  return `<a class="cover" href="${GUIDE}" target="_blank" rel="noopener" aria-label="Download the Simplifying Segmentation e-book. Opens illumio.com in a new tab."><img src="${COVER}" width="694" height="903" alt="E-book cover. Simplifying Segmentation: The Missing Layer in a Broken Security Model."></a>` +
+  return `<a class="cover" href="${esc(GUIDE)}" target="_blank" rel="noopener" aria-label="Download the Simplifying Segmentation e-book. Opens illumio.com in a new tab."><img src="${COVER}" width="694" height="903" alt="E-book cover. Simplifying Segmentation: The Missing Layer in a Broken Security Model."></a>` +
     `<p class="eyebrow">E-book</p><h1 class="h2">Put the seven steps to work</h1><p class="lead">You have seen the short version. For a detailed roadmap, use-cases, and reporting ROI, get your copy of our e-book.</p>` +
-    `<div class="cta"><a class="btn primary" href="${GUIDE}" target="_blank" rel="noopener">${IC.dl}Download the guide</a><button class="btn" data-act="replay">${IC.play}Watch again</button></div>`;
+    `<div class="cta"><a class="btn primary" href="${esc(GUIDE)}" target="_blank" rel="noopener">${IC.dl}Download the guide</a><button class="btn" data-act="replay">${IC.play}Watch again</button></div>`;
 }
 function renderView(b){
   for (const old of copy.querySelectorAll('.view')){ old.classList.remove('in'); old.classList.add('out'); setTimeout(() => old.remove(), 260); }
@@ -1528,7 +1544,25 @@ $('#prev').addEventListener('click', () => { ensureAudio(); go(cur - 1); });
 try { localStorage.removeItem('xp-music'); } catch (e) {}
 soundBtn.addEventListener('click', () => { const turnOn = !Music.on; Music.mute(!turnOn); if (turnOn) ensureAudio(); ui(); });
 const appEl = $('#app');
-if (!appEl.requestFullscreen) fullBtn.hidden = true;
+if (!appEl.requestFullscreen || document.fullscreenEnabled === false) fullBtn.hidden = true; // also covers a frame that is not allowed to go full screen
+// Embed mode: tell the host page how tall the frame should be, so the frame never shows a scroll bar of its own.
+if (EMBED) (() => {
+  const root = document.documentElement, stageEl = $('#stage'), barEl = $('.bar'), mq = matchMedia('(max-aspect-ratio:11/10),(max-width:860px)');
+  root.classList.add('embed');
+  let maxH = 0, lastW = -1, last = '';
+  const report = () => {
+    const hosted = root.classList.contains('hosted'), stacked = mq.matches && !document.fullscreenElement, w = innerWidth, bar = Math.ceil(barEl.getBoundingClientRect().height);
+    if (w !== lastW || !stacked || !hosted){ lastW = w; maxH = 0; }
+    // Stacked layout: the frame takes the height of its content. It only grows while the width stays the same, so the host page does not jump about.
+    if (stacked && hosted) maxH = Math.max(maxH, Math.ceil(stageEl.getBoundingClientRect().height) + bar);
+    appEl.style.minHeight = maxH ? maxH + 'px' : '';
+    const msg = {source:'illumio-explainer', type:'size', layout:stacked ? 'stacked' : 'wide', height:maxH, bar, hosted};
+    const key = JSON.stringify(msg); if (key !== last){ last = key; parent.postMessage(msg, '*'); }
+  };
+  addEventListener('message', e => { if (e.source === parent && e.data && e.data.source === 'illumio-explainer-host'){ root.classList.add('hosted'); last = ''; report(); } }); // the host page is listening: answer with the current size
+  new ResizeObserver(report).observe(stageEl); new ResizeObserver(report).observe(barEl);
+  addEventListener('resize', report); document.addEventListener('fullscreenchange', report); mq.addEventListener('change', report); report();
+})();
 fullBtn.addEventListener('click', () => {
   try { (document.fullscreenElement ? document.exitFullscreen() : appEl.requestFullscreen()).catch(() => { fullBtn.hidden = true; }); } catch (e) { fullBtn.hidden = true; }
 });
