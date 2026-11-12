@@ -11,7 +11,8 @@ a generic enterprise. It ends with a call to action that links to the e-book:
 
 | Path | What it is |
 | --- | --- |
-| `index.html` | The whole explainer: markup, styles, script, and the soundtrack |
+| `app.html` | The whole explainer: markup, styles, script, and the soundtrack |
+| `index.html` | A small shell that shows the explainer inside the site's header and footer (a stopgap, see below) |
 | `img/` | The e-book cover shown on the ending screen |
 | `webflow.json` | Tells Webflow Cloud this is a static app (not published) |
 | `.github/embed-snippet.html` | Optional snippet for a host page with a navigation bar (not published) |
@@ -35,32 +36,51 @@ fonts stored on the Illumio Webflow site, the same files illumio.com uses:
 | Bold 700 | `6707c08d3ce6f76b01ec3b00_FKGrotesk-Bold.woff` |
 
 If the web team replaces those font files in Webflow, update the four
-`@font-face` addresses and the four `preload` links at the top of `index.html`.
+`@font-face` addresses and the four `preload` links at the top of `app.html`.
 
 ## Where it lives on illumio.com
 
 | Address | What it is |
 | --- | --- |
-| `/interactive-tools/simplifying-segmentation-explainer` | The public page. It is an item in the Interactive Tools CMS collection, like the other interactive tools, so it gets the same page template and footer. The template also shows the site navigation bar for this tool. |
-| `/apps/simplifying-segmentation-explainer` | This repo, served by Webflow Cloud. The CMS item's "Iframe Embed Link" field points here. |
+| `/interactive-tools/simplifying-segmentation-explainer` | The public address. This repo is mounted here by Webflow Cloud. A visitor gets `index.html`, the shell, which shows the explainer inside the site's header and footer. |
+| `/interactive-tools/simplifying-segmentation-explainer/app.html` | The explainer on its own. Add `?embed=1` when it sits in a frame. |
+| `/simplifying-segmentation-explainer` | A regular Webflow page: site navigation, a frame for the explainer, site footer. The shell borrows this page. |
 
-To list the explainer on `/resources/interactive-tools`, give the CMS item a
-Sort Order, a headline, an intro paragraph, a preview image, and button text.
-With a blank Sort Order it stays off that list.
+The Interactive Tools CMS collection still has an item for the explainer, but
+its page template is switched off, so the item makes no page of its own.
 
-The Interactive Tools page template holds the Global / Navbar component in a
-wrapper block (class `interactive-tool_nav-wrap`). The wrapper carries the
-item's slug in a `data-tool` attribute. A small code embed just above it hides
-the bar on every tool except the slugs it lists, and this tool is the only one
-listed. To show the bar on another tool, add that tool's slug to the embed.
+### Site header and footer (a stopgap)
+
+Webflow Cloud serves an app as the whole page at its mount path, so a tool
+mounted at its public address has no site header or footer. Until a regular
+Webflow page can answer at this address, `index.html` works around that:
+
+1. A visitor opens the public address and gets the shell.
+2. The shell fetches the Webflow page at `/simplifying-segmentation-explainer`
+   and writes it into the document. That page has the real site navigation
+   and footer, and a frame that loads the explainer.
+3. The shell rewrites the page's canonical and `og:url` tags to the public
+   address and drops its `hreflang` links.
+
+If the shell is itself in a frame, or the address has `?embed=1` or `?bare=1`,
+it hands over to `app.html`. If the Webflow page is missing, or no longer
+frames this tool, the visitor gets `app.html` on its own.
+
+Known costs: the page is blank for a moment while the Webflow page loads, and
+the site's analytics tags can run twice (once in the shell, once in the page).
+
+To remove the stopgap once a Webflow page can sit at the public address:
+delete `index.html`, rename `app.html` to `index.html`, mount the app
+somewhere else (for example `/apps/simplifying-segmentation-explainer`), and
+point the page's frame at the new mount with `?embed=1`.
 
 ## Deploying on Webflow Cloud
 
 This is a no-framework static app. Webflow Cloud serves the files exactly as
 committed, at the mount path set for the environment
-(`/apps/simplifying-segmentation-explainer`).
+(`/interactive-tools/simplifying-segmentation-explainer`).
 
-- Keep `index.html` at the repo root, and do not add a `package.json`.
+- Keep `index.html` and `app.html` at the repo root, and do not add a `package.json`.
 - Every public file in the repo is published. Files and folders that start
   with a dot, and `webflow.json`, are not.
 - Paths inside the page are relative, so the mount path can change without
@@ -69,8 +89,7 @@ committed, at the mount path set for the environment
 - Pushing to the connected branch deploys a new version.
 - The Illumio site adds its usual analytics and marketing tags to the page
   on its own. None of them are in this repo.
-- Do not mount the app under `/interactive-tools/`. That path belongs to the
-  CMS collection, and an app mounted there hides the collection page.
+- An app's mount path wins over a Webflow page at the same address.
 
 ## How it behaves inside a frame
 
@@ -91,7 +110,7 @@ after itself:
   screen, the button hides itself.
 - Space and the arrow keys work only after a click inside the frame.
 - The site adds its analytics tags to the explainer as well as the host page,
-  so a framed visit can count twice. Exclude `/apps/` in the tag setup if that
+  so a framed visit can count twice. Exclude the app's `app.html` address in the tag setup if that
   matters.
 
 ### On a page outside the Interactive Tools template
@@ -126,7 +145,7 @@ then waits on each screen until they press an arrow.
 
 ## Common edits
 
-All of these live in `index.html`.
+All of these live in `app.html`.
 
 | To change | Search for |
 | --- | --- |
