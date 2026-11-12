@@ -41,17 +41,18 @@ If the web team replaces those font files in Webflow, update the four
 
 | Address | What it is |
 | --- | --- |
-| `/interactive-tools/simplifying-segmentation-explainer` | The public page. It is an item in the Interactive Tools CMS collection, like the other interactive tools, so it gets the same page template and footer. Its "Show Site Navigation" switch is on, so it also gets the site navigation bar. |
+| `/interactive-tools/simplifying-segmentation-explainer` | The public page. It is an item in the Interactive Tools CMS collection, like the other interactive tools, so it gets the same page template and footer. The template also shows the site navigation bar for this tool. |
 | `/apps/simplifying-segmentation-explainer` | This repo, served by Webflow Cloud. The CMS item's "Iframe Embed Link" field points here. |
 
 To list the explainer on `/resources/interactive-tools`, give the CMS item a
 Sort Order, a headline, an intro paragraph, a preview image, and button text.
 With a blank Sort Order it stays off that list.
 
-The "Show Site Navigation" switch on a CMS item shows the Global / Navbar
-component above that tool. It is off for the other tools, which fill the
-whole screen. In the page template the navigation bar sits in a wrapper block
-(class `interactive-tool_nav-wrap`) whose visibility follows the switch.
+The Interactive Tools page template holds the Global / Navbar component in a
+wrapper block (class `interactive-tool_nav-wrap`). The wrapper carries the
+item's slug in a `data-tool` attribute. A small code embed just above it hides
+the bar on every tool except the slugs it lists, and this tool is the only one
+listed. To show the bar on another tool, add that tool's slug to the embed.
 
 ## Deploying on Webflow Cloud
 
