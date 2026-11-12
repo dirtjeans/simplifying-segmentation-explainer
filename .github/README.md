@@ -13,9 +13,8 @@ a generic enterprise. It ends with a call to action that links to the e-book:
 | --- | --- |
 | `index.html` | The whole explainer: markup, styles, script, and the soundtrack |
 | `img/` | The e-book cover shown on the ending screen |
-| `embed-demo.html` | Test page that frames the explainer with the embed snippet |
 | `webflow.json` | Tells Webflow Cloud this is a static app (not published) |
-| `.github/embed-snippet.html` | The snippet to paste into a Webflow page (not published) |
+| `.github/embed-snippet.html` | Optional snippet for a host page with a navigation bar (not published) |
 | `.github/README.md` | This file (not published) |
 
 There is no build step and no framework. The soundtrack and sound effects are
@@ -38,10 +37,22 @@ fonts stored on the Illumio Webflow site, the same files illumio.com uses:
 If the web team replaces those font files in Webflow, update the four
 `@font-face` addresses and the four `preload` links at the top of `index.html`.
 
+## Where it lives on illumio.com
+
+| Address | What it is |
+| --- | --- |
+| `/interactive-tools/simplifying-segmentation-explainer` | The public page. It is an item in the Interactive Tools CMS collection, like the other interactive tools, so it gets the same page template and footer. |
+| `/apps/simplifying-segmentation-explainer` | This repo, served by Webflow Cloud. The CMS item's "Iframe Embed Link" field points here. |
+
+To list the explainer on `/resources/interactive-tools`, give the CMS item a
+Sort Order, a headline, an intro paragraph, a preview image, and button text.
+With a blank Sort Order it stays off that list.
+
 ## Deploying on Webflow Cloud
 
 This is a no-framework static app. Webflow Cloud serves the files exactly as
-committed, at the mount path set for the environment.
+committed, at the mount path set for the environment
+(`/apps/simplifying-segmentation-explainer`).
 
 - Keep `index.html` at the repo root, and do not add a `package.json`.
 - Every public file in the repo is published. Files and folders that start
@@ -52,38 +63,34 @@ committed, at the mount path set for the environment.
 - Pushing to the connected branch deploys a new version.
 - The Illumio site adds its usual analytics and marketing tags to the page
   on its own. None of them are in this repo.
+- Do not mount the app under `/interactive-tools/`. That path belongs to the
+  CMS collection, and an app mounted there hides the collection page.
 
-Live address:
-<https://www.illumio.com/interactive-tools/simplifying-segmentation-explainer>
+## How it behaves inside a frame
 
-## Embedding it in a Webflow page
+The explainer is on the same site as the pages that frame it, so it can look
+after itself:
 
-To show the explainer with the site navigation and footer, frame it inside a
-normal Webflow page. Paste `.github/embed-snippet.html` into one Code Embed
-element on that page.
-
-What the snippet and the explainer do together:
-
-- The frame's address ends in `?embed=1`. That hides the explainer's own logo,
-  since the site navigation already shows one.
-- **No second scroll bar.** On wide screens the frame is 16:9 plus the control
-  bar, and never taller than the window. On phones and narrow frames it is as
-  tall as its content, so only the page scrolls.
+- **No second scroll bar.** On phones and narrow or tall frames the explainer
+  stacks its layout and makes its own frame as tall as the content, so only
+  the page scrolls. On wide frames it keeps the height the page gives it and
+  scales to fit.
 - **Campaign tags carry over.** Any `utm_` tags on the host page's address are
   added to the e-book link. The same happens when the explainer is opened on
   its own with `utm_` tags.
-- **Full screen** works because the frame allows it. Without that permission
-  the button hides itself.
-
-Things the web team should know:
-
+- **Full screen** works in frames on the same site. If a frame may not go full
+  screen, the button hides itself.
 - Space and the arrow keys work only after a click inside the frame.
-- The site adds its analytics tags to the explainer page as well as the host
-  page, so a framed visit can count twice. Exclude the explainer's address in
-  the tag setup if that matters.
-- `embed-demo.html` is a test page that uses the same snippet with stand-in
-  bars for the navigation and footer. It is published but marked noindex.
-  Delete it from the repo once the real page exists.
+- The site adds its analytics tags to the explainer as well as the host page,
+  so a framed visit can count twice. Exclude `/apps/` in the tag setup if that
+  matters.
+
+### On a page with a navigation bar
+
+`.github/embed-snippet.html` is for a different kind of host page: one that has
+the site navigation above the frame. Its frame address ends in `?embed=1`,
+which hides the explainer's own logo and lets the snippet size the frame to
+fit under the bar. Paste it into one Code Embed element.
 
 ## Run it locally
 

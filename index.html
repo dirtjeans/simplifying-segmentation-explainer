@@ -1454,7 +1454,7 @@ const REL = document.querySelector('base[href]') ? '' : (p => p.endsWith('/') ||
 const EMBED = /[?&]embed=1(?:&|$)/.test(location.search); // set by the embed snippet on a host page
 // Campaign tags (utm_...) on this page's address, or on the page that frames it, are carried over to the e-book link.
 const UTM = (() => { const out = new URLSearchParams(), take = q => { try { for (const [k, v] of new URLSearchParams(q)) if (/^utm_[a-z0-9_]+$/i.test(k) && !out.has(k)) out.set(k, v.slice(0, 200)); } catch (e) {} };
-  if (EMBED) try { take(parent.location.search); } catch (e) {}
+  if (parent !== window) try { take(parent.location.search); } catch (e) {} // only readable when the host page is on the same site
   take(location.search); return out.toString(); })();
 const GUIDE = 'https://www.illumio.com/resource-center/simplifying-segmentation' + (UTM ? '?' + UTM : ''), COVER = REL + 'img/simplifying-segmentation-cover.jpg';
 new Image().src = COVER; // fetch the cover early so it is ready for the ending
@@ -1562,6 +1562,30 @@ if (EMBED) (() => {
   addEventListener('message', e => { if (e.source === parent && e.data && e.data.source === 'illumio-explainer-host'){ root.classList.add('hosted'); last = ''; report(); } }); // the host page is listening: answer with the current size
   new ResizeObserver(report).observe(stageEl); new ResizeObserver(report).observe(barEl);
   addEventListener('resize', report); document.addEventListener('fullscreenchange', report); mq.addEventListener('change', report); report();
+})();
+// Framed by a page on the same site, with no embed snippet (the Interactive Tools page template). On phones and narrow or tall frames
+// the explainer stacks, so make the frame as tall as its content: then only the page scrolls. Wide frames keep the host's own height.
+if (!EMBED) (() => {
+  let fe = null; try { fe = window.frameElement; } catch (e) {}
+  if (!fe) return;
+  const root = document.documentElement, stageEl = $('#stage'), barEl = $('.bar'), own = fe.style.height;
+  let maxH = 0, lastW = -1, busy = false;
+  const fit = () => {
+    if (busy) return; busy = true;
+    fe.style.height = own; const H0 = fe.clientHeight, w = fe.clientWidth; // the height the host page gives the frame, read before anything is painted
+    const stacked = !document.fullscreenElement && H0 > 0 && (w <= 860 || w / H0 <= 1.1);
+    root.classList.toggle('hosted', stacked);
+    if (stacked){
+      if (w !== lastW){ lastW = w; maxH = 0; appEl.style.minHeight = ''; }
+      maxH = Math.max(maxH, H0, Math.ceil(stageEl.getBoundingClientRect().height) + Math.ceil(barEl.getBoundingClientRect().height)); // never shorter than the host made it
+      appEl.style.minHeight = maxH + 'px'; fe.style.height = maxH + 'px';
+    } else { maxH = 0; lastW = -1; appEl.style.minHeight = ''; }
+    busy = false;
+  };
+  new ResizeObserver(fit).observe(stageEl); new ResizeObserver(fit).observe(barEl);
+  addEventListener('resize', fit); document.addEventListener('fullscreenchange', fit);
+  try { parent.addEventListener('resize', fit); } catch (e) {}
+  fit();
 })();
 fullBtn.addEventListener('click', () => {
   try { (document.fullscreenElement ? document.exitFullscreen() : appEl.requestFullscreen()).catch(() => { fullBtn.hidden = true; }); } catch (e) { fullBtn.hidden = true; }
