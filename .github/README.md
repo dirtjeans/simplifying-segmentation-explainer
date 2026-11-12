@@ -41,12 +41,17 @@ If the web team replaces those font files in Webflow, update the four
 
 | Address | What it is |
 | --- | --- |
-| `/interactive-tools/simplifying-segmentation-explainer` | The public page. It is an item in the Interactive Tools CMS collection, like the other interactive tools, so it gets the same page template and footer. |
+| `/interactive-tools/simplifying-segmentation-explainer` | The public page. It is an item in the Interactive Tools CMS collection, like the other interactive tools, so it gets the same page template and footer. Its "Show Site Navigation" switch is on, so it also gets the site navigation bar. |
 | `/apps/simplifying-segmentation-explainer` | This repo, served by Webflow Cloud. The CMS item's "Iframe Embed Link" field points here. |
 
 To list the explainer on `/resources/interactive-tools`, give the CMS item a
 Sort Order, a headline, an intro paragraph, a preview image, and button text.
 With a blank Sort Order it stays off that list.
+
+The "Show Site Navigation" switch on a CMS item shows the Global / Navbar
+component above that tool. It is off for the other tools, which fill the
+whole screen. In the page template the navigation bar sits in a wrapper block
+(class `interactive-tool_nav-wrap`) whose visibility follows the switch.
 
 ## Deploying on Webflow Cloud
 
@@ -75,6 +80,9 @@ after itself:
   stacks its layout and makes its own frame as tall as the content, so only
   the page scrolls. On wide frames it keeps the height the page gives it and
   scales to fit.
+- **It fits under the site navigation.** If the host page has a bar stuck to
+  the top, the explainer shortens its frame to the space below the bar and
+  hides its own logo, since the bar already shows one.
 - **Campaign tags carry over.** Any `utm_` tags on the host page's address are
   added to the e-book link. The same happens when the explainer is opened on
   its own with `utm_` tags.
@@ -85,12 +93,13 @@ after itself:
   so a framed visit can count twice. Exclude `/apps/` in the tag setup if that
   matters.
 
-### On a page with a navigation bar
+### On a page outside the Interactive Tools template
 
-`.github/embed-snippet.html` is for a different kind of host page: one that has
-the site navigation above the frame. Its frame address ends in `?embed=1`,
-which hides the explainer's own logo and lets the snippet size the frame to
-fit under the bar. Paste it into one Code Embed element.
+`.github/embed-snippet.html` is for a host page built by hand, with the site
+navigation above the frame. Its frame address ends in `?embed=1`, which hides
+the explainer's own logo and lets the snippet size the frame to fit under the
+bar. Paste it into one Code Embed element. The Interactive Tools page does not
+need it.
 
 ## Run it locally
 
