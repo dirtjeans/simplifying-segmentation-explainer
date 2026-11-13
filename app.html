@@ -333,7 +333,7 @@ const FDEF = {
   blueprint:['0.0','1.0',1.0], wire:['1.0',null,1.6], platform:['1.1',null,1.0], ghost:['1.1','2.4',1.2],
   tools:['1.2','3.0',1.6], sensors:['1.2',null,2.2], team:['1.3','2.0',1.2],
   solid:['2.1',null,2.8], context:['2.2','3.0',1.8], struct:['2.3',null,2.6], flows:['2.4',null,2.8], risk:['2.5',null,9.2,1],
-  block:['3.1',null,1.6], env:['3.2',null,5.4,null,1.6,.7], core:['3.3',null,1.4], protect:['3.4',null,3.4,null,1.6], zones:['3.5',null,1.6],
+  block:['3.1',null,5.6,null,1.6,.7], env:['3.2',null,5.4,null,1.6,.7], core:['3.3',null,1.4], protect:['3.4',null,3.4,null,1.6], zones:['3.5',null,1.6],
   siem:['4.1',null,1.2], ztna:['4.2',null,1.2], vuln:['4.3',null,1.6], ot:['4.4',null,1.4],
   vPorts:['5.1','6.0',5.0], legacy:['5.2',null,1.4], vTime:['5.3','5.4',1.0], sneak:['5.4','5.5',1.2], sim:['5.5','6.0',1.4],
   enforce:['6.0',null,1.4], events:['6.1',null,1.2], spike:['6.2','6.3',1.0], intruder:['6.3','6.4',1.0], heat:['6.4','6.5',1.4,null,null,4.4], alerts:['6.5','7.0',7.2,.5],
@@ -346,7 +346,7 @@ F.blueprint.v = F.blueprint.ev = 1;
 /* ---------- state ---------- */
 let cur = 0, auto = false, manual = false, paused = false, started = false, at = 0, bt = 0, T = 0, GT = 0, TLT = 0, LAPSE = 0, lapseFrame = 0;
 const LFPS = 13, h1 = x => { const q = Math.sin(x * 127.1 + 311.7) * 43758.5453; return q - Math.floor(q); };
-let quakeT = -9, prevFV = 0, prevZV = 0, prevPN = 0, prevCV = 0, prevEN = 0, prevNV = 0, prevAN = 0, prevRN = 0, endT = 0, wipe = 0, integA = 0, integT = 0, integId = '', integSpec = null, tStage = 0, tDone = true;
+let quakeT = -9, prevBN = 0, prevFV = 0, prevZV = 0, prevPN = 0, prevCV = 0, prevEN = 0, prevNV = 0, prevAN = 0, prevRN = 0, endT = 0, wipe = 0, integA = 0, integT = 0, integId = '', integSpec = null, tStage = 0, tDone = true;
 
 /* ====================================================================
    WORLD: an isometric city of workloads
@@ -464,6 +464,9 @@ BASE.forEach((l, i) => { const d = l.b.id; l.isBase = true; l.vt = -1; l.port = 
 const NL = BASE.length;
 BASE.map((l, i) => [l, rnd()]).sort((x, y) => x[1] - y[1]).forEach(([l], i) => l.ord = i);
 const RISKS = LINKS.filter(l => l.type === 'risk'); RISKS.forEach((l, i) => l.k = i);
+// 3.1 closes the high-risk paths first, then the unused ports, one at a time
+const BLOCKS = RISKS.concat(LINKS.filter(l => l.type === 'unused')); BLOCKS.forEach((l, i) => l.bi = i);
+const BLK_GAP = .11, BLK_W = .23, blockP = l => clamp((F.block.v - l.bi * BLK_GAP) / BLK_W), blockN = () => BLOCKS.filter(l => blockP(l) >= .5).length;
 const N_UNUSED = LINKS.filter(l => l.type === 'unused').length, PERMS = LINKS.filter(l => l.type === 'perm'), N_PERM = PERMS.length;
 PERMS.forEach((l, i) => l.k = i);
 const N_CROSS = LINKS.filter(l => l.type === 'cross').length;
@@ -501,7 +504,7 @@ const RO = {
   '2.3':['Label groups', () => `${count(F.struct.v * 1.2, 7)} of 7`],
   '2.4':['Flows mapped', () => `${count(F.flows.v * 1.15, NL)}`],
   '2.5':['High-risk paths', () => { const n = riskN(); return n >= RISKS.length ? `${n} found by AI` : n ? `${n} of ${RISKS.length} found by AI` : 'AI is scanning'; }],
-  '3.1':['Paths closed', () => `${count(F.block.v * 1.2, RISKS.length + N_UNUSED)}`],
+  '3.1':['Paths closed', () => `${blockN()} of ${BLOCKS.length}`],
   '3.2':['Environments separated', () => { const n = envN(); return n ? `${n} of 4 · ${['Dev', 'Test', 'Prod cloud', 'Prod data center'][n - 1]}` : 'Starting'; }],
   '3.3':['Core services','DNS · NTP · LDAP · Identity'],
   '3.4':['Protect surfaces', () => `${count(F.protect.v * 1.2, CRITS.length)}`],
@@ -826,8 +829,8 @@ function drawLinks(dt){
       case 'doc': p = 1; alpha = F.vPorts.hi * clamp(F.vPorts.v * 9); cut = eo(clamp((F.vPorts.v - .72) / .2)); lp = lblP('5.1'); col = mix(mix([193,195,195], GOLD, .55), WHITE, .5 * lp); dash = [3, 5]; pul = 0; tagA = lblA('5.1', alpha); break;
       default: p = eo(stag(fv, l.ord, NL, 1.3));
     }
-    if (l.type === 'unused'){ dash = [3, 5]; alpha *= .6 * (1 - eo(F.block.v)); pul = 0; if (F.block.hi > .1) col = mix(CER, RED, F.block.hi * (1 - F.block.v)); }
-    if (l.type === 'risk'){ const rk = riskA(l.k), live25 = cur === F.risk.on, ts = F.risk.v * RISK_T - riskAt(l.k); lp = live25 ? bump(ts) : 0; col = mix(mix(CER, RED, rk), WHITE, .55 * lp); width += rk + 2.8 * lp; cut = eo(stag(F.block.v, l.k, RISKS.length, .6)); tagA = Math.max(F.risk.hi * (live25 ? clamp(ts / .1) : rk), F.block.hi * .9); }
+    if (l.type === 'unused'){ const bp = blockP(l), fl = Math.sin(Math.PI * bp) * F.block.hi; dash = [3, 5]; alpha *= .6 + .4 * fl; pul = 0; cut = eo(clamp(bp * 2 - .6)); width += 2 * fl; if (F.block.hi > .1) col = mix(mix(CER, RED, F.block.hi), WHITE, .45 * fl); }
+    if (l.type === 'risk'){ const rk = riskA(l.k), live25 = cur === F.risk.on, ts = F.risk.v * RISK_T - riskAt(l.k); lp = live25 ? bump(ts) : 0; col = mix(mix(CER, RED, rk), WHITE, .55 * lp); width += rk + 2.8 * lp; const bp = blockP(l), fl = Math.sin(Math.PI * bp) * F.block.hi; cut = eo(clamp(bp * 2 - .6)); width += 2 * fl; col = mix(col, WHITE, .45 * fl); tagA = Math.max(F.risk.hi * (live25 ? clamp(ts / .1) : rk), F.block.hi * .9); }
     if (l.type === 'cross'){ cut = eo(clamp(Math.max(envP(l.a.d), envP(l.b.d)) * 2 - 1)); col = mix(CER, GOLD, F.env.hi); }
     if (l.type === 'perm'){ cut = eo(clamp(tgp * 3 - l.k)); col = mix(CER, GOLD, F.tighten.hi * bandIn * (1 - cut)); if (F.tighten.hi > .2 && cut < .99) dash = [5, 4]; }
     const ghostA = l.isBase ? gh * .3 * (1 - p) : 0;
@@ -1463,7 +1466,7 @@ const Music = {
   },
   vis(){ if (!this.ctx) return; if (document.hidden) this.ctx.suspend().catch(() => {}); else if (!this.paused) this.ctx.resume().catch(() => {}); }
 };
-const SFX = {'2.1':'scan','2.5':'scan','3.1':'block','5.5':'ok','7.2':'ok','7.3':'scan'};
+const SFX = {'2.1':'scan','2.5':'scan','5.5':'ok','7.2':'ok','7.3':'scan'};
 function ensureAudio(){ try { Music.start(); } catch (e) {} }
 document.addEventListener('visibilitychange', () => Music.vis());
 
@@ -1543,6 +1546,7 @@ function go(i){
   i = clamp(i, 0, LAST); if (i === cur) return;
   const prev = BEATS[cur]; cur = i; at = 0; bt = 0;
   if (cur === F.env.on){ F.env.v = 0; prevEN = 0; }
+  if (cur === F.block.on){ F.block.v = 0; prevBN = 0; }
   if (cur === F.core.on) prevCV = F.core.v;
   if (cur === F.zones.on) prevZV = F.zones.v;
   if (cur === F.enforce.on) prevFV = F.enforce.v;
@@ -1675,6 +1679,7 @@ function frame(ts){
   const an = BEATS[cur].id === '6.5' ? alertN() : 0; if (an > prevAN) Music.sfx('alert'); prevAN = an;
   const coreV = F.core.v; if (cur === F.core.on && prevCV < .5 && coreV >= .5) Music.sfx('latch'); prevCV = coreV;
   const pn = cur === F.protect.on ? CRITS.filter((n, i) => eo(stag(F.protect.v, i, CRITS.length, .8)) >= .5).length : 0; if (pn > prevPN) Music.sfx('latch'); prevPN = pn;
+  const bn = cur === F.block.on ? blockN() : 0; if (bn > prevBN) Music.sfx('block'); prevBN = bn;
   const fv = F.enforce.v; if (cur === F.enforce.on && prevFV < .5 && fv >= .5) Music.sfx('latch'); prevFV = fv;
   const zv = F.zones.v; if (cur === F.zones.on && prevZV < .5 && zv >= .5) Music.sfx('latch'); prevZV = zv;
   const en = cur === F.env.on ? envN(.3) : 0; if (en > prevEN) Music.sfx('latch'); prevEN = en;
