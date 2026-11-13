@@ -502,7 +502,7 @@ const RO = {
   '2.4':['Flows mapped', () => `${count(F.flows.v * 1.15, NL)}`],
   '2.5':['High-risk paths', () => { const n = riskN(); return n >= RISKS.length ? `${n} found by AI` : n ? `${n} of ${RISKS.length} found by AI` : 'AI is scanning'; }],
   '3.1':['Paths closed', () => `${count(F.block.v * 1.2, RISKS.length + N_UNUSED)}`],
-  '3.2':['Environments separated', () => { const n = envN(); return n ? ['Dev', 'Dev · Test', 'Dev · Test · Prod', 'Dev · Test · Prod'][n - 1] : 'Starting'; }],
+  '3.2':['Environments separated', () => { const n = envN(); return n ? `${n} of 4 · ${['Dev', 'Test', 'Prod cloud', 'Prod data center'][n - 1]}` : 'Starting'; }],
   '3.3':['Core services','DNS · NTP · LDAP · Identity'],
   '3.4':['Protect surfaces', () => `${count(F.protect.v * 1.2, CRITS.length)}`],
   '3.5':['Trust zones','7'],
@@ -1222,6 +1222,10 @@ function tickCamera(dt){
     const q = F.risk.v * RISK_T + LEAD, i = q < riskAt(0) ? -1 : q < riskAt(1) ? 0 : q < riskAt(2) ? 1 : q < riskAt(3) ? 2 : q < riskAt(3) + 1.75 + LEAD ? 3 : -1;
     if (i >= 0){ const m = ptAt(linkGeom(RISKS[i]), .5); t = [m[0], m[1] - 14, 1.55]; }
   }
+  if (cur === F.env.on && F.env.v < 1){ // follow each environment as its boundary goes up, then pull back to show all four
+    const i = ENV_SEQ.findIndex((k, j) => F.env.v + .08 < j * ENV_GAP + ENV_W);
+    if (i >= 0){ const r = DIST[ENV_SEQ[i]].r, p = iso((r[0] + r[2]) / 2, (r[1] + r[3]) / 2); t = [p[0], p[1] - 10, 1.3]; }
+  }
   if (BEATS[cur].id === '6.5'){ // push in on each alert as it arrives, then pull back to show all three
     const q = F.alerts.v * ALERT_T + LEAD, i = q < alertAt(0) ? -1 : q < alertAt(1) ? 0 : q < alertAt(2) ? 1 : q < alertAt(2) + 1.75 + LEAD ? 2 : -1;
     if (i >= 0){ const n = NB[['k3', 'db', 'd3'][i]], p = iso(n.cu, n.cv); t = [p[0], p[1] - 24, 1.62]; }
@@ -1403,6 +1407,11 @@ class Engine {
     const ch = CH[this.ci || 0], S = this.L.sfx;
     if (name === 'tick'){ this.bell(t, ch.arp[2 + ((t * 10 | 0) % 3)] + 12, .5, .7, S); const s = this.nz(t, t + .3), bp = this.filt('bandpass', 2400, 1), e = this.env(t, .045, .05, .16); bp.frequency.setValueAtTime(1600, t); bp.frequency.exponentialRampToValueAtTime(5200, t + .2); s.connect(bp); bp.connect(e); e.connect(S); }
     else if (name === 'scan'){ const o = this.osc('sine', 500, t, t + 2), e = this.env(t, .05, .5, 1.3); o.frequency.setValueAtTime(500, t); o.frequency.exponentialRampToValueAtTime(2600, t + 1.8); o.connect(e); e.connect(S); this.riser(t, t + 1.6); }
+    else if (name === 'latch'){ // a latch: a sharp metal click, then the bolt seating
+      const c = this.nz(t, t + .06), cb = this.filt('bandpass', 3400, 3), ce = this.env(t, .26, .001, .025); c.connect(cb); cb.connect(ce); ce.connect(S);
+      const p = this.osc('sine', 2600, t, t + .08), pe = this.env(t, .05, .001, .05); p.frequency.setValueAtTime(2600, t); p.frequency.exponentialRampToValueAtTime(1900, t + .05); p.connect(pe); pe.connect(S);
+      const t2 = t + .075, s = this.nz(t2, t2 + .12), sb = this.filt('bandpass', 1100, 2.2), se = this.env(t2, .22, .001, .05); s.connect(sb); sb.connect(se); se.connect(S);
+      const b = this.osc('triangle', 210, t2, t2 + .14), be = this.env(t2, .16, .002, .07); b.frequency.setValueAtTime(210, t2); b.frequency.exponentialRampToValueAtTime(140, t2 + .08); b.connect(be); be.connect(S); }
     else if (name === 'block'){ const o = this.osc('square', 150, t, t + .25), lp = this.filt('lowpass', 700), e = this.env(t, .22, .002, .16); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(58, t + .14); o.connect(lp); lp.connect(e); e.connect(S); const o2 = this.osc('square', 120, t + .16, t + .45), lp2 = this.filt('lowpass', 700), e2 = this.env(t + .16, .18, .002, .18); o2.frequency.setValueAtTime(120, t + .16); o2.frequency.exponentialRampToValueAtTime(50, t + .3); o2.connect(lp2); lp2.connect(e2); e2.connect(S); }
     else if (name === 'alert'){ this.bell(t, 81, .8, .5, S); this.bell(t + .14, 88, .8, .7, S); }
     else if (name === 'thud'){ const o = this.osc('sine', 95, t, t + .6), e = this.c.createGain(); o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(34, t + .3); e.gain.setValueAtTime(.85, t); e.gain.exponentialRampToValueAtTime(.001, t + .5); o.connect(e); e.connect(S); const s = this.nz(t, t + .4), lp = this.filt('lowpass', 420), ne = this.env(t, .3, .003, .3); s.connect(lp); lp.connect(ne); ne.connect(S); }
@@ -1452,7 +1461,7 @@ const Music = {
   },
   vis(){ if (!this.ctx) return; if (document.hidden) this.ctx.suspend().catch(() => {}); else if (!this.paused) this.ctx.resume().catch(() => {}); }
 };
-const SFX = {'2.1':'scan','2.5':'scan','3.1':'block','5.5':'ok','7.2':'ok','7.3':'scan'};
+const SFX = {'2.1':'scan','2.5':'scan','3.1':'latch','5.5':'ok','7.2':'ok','7.3':'scan'};
 function ensureAudio(){ try { Music.start(); } catch (e) {} }
 document.addEventListener('visibilitychange', () => Music.vis());
 
@@ -1658,7 +1667,7 @@ function frame(ts){
   else wipe = Math.max(0, wipe - dt * 1.9);
   endT = BEATS[cur].kind === 'outro' ? endT + dt : 0;
   const an = BEATS[cur].id === '6.5' ? alertN() : 0; if (an > prevAN) Music.sfx('alert'); prevAN = an;
-  const en = cur === F.env.on ? envN() : 0; if (en > prevEN) Music.sfx('block'); prevEN = en;
+  const en = cur === F.env.on ? envN() : 0; if (en > prevEN) Music.sfx('latch'); prevEN = en;
   const rn = BEATS[cur].id === '2.5' ? riskN() : 0; if (rn > prevRN) Music.sfx('alert'); prevRN = rn;
   const pg = PING[BEATS[cur].id]; if (pg !== undefined && bt - dt < pg && bt >= pg) Music.sfx('alert');
   const nv = F.newNode.v; if (BEATS[cur].id === '7.3' && prevNV < .62 && nv >= .62){ quakeT = T; Music.sfx('thud'); } prevNV = nv;
