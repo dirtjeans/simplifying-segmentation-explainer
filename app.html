@@ -466,7 +466,7 @@ BASE.map((l, i) => [l, rnd()]).sort((x, y) => x[1] - y[1]).forEach(([l], i) => l
 const RISKS = LINKS.filter(l => l.type === 'risk'); RISKS.forEach((l, i) => l.k = i);
 // 3.1 closes the high-risk paths first, then the unused ports, one at a time
 const BLOCKS = RISKS.concat(LINKS.filter(l => l.type === 'unused')); BLOCKS.forEach((l, i) => l.bi = i);
-const BLK_GAP = .11, BLK_W = .23, blockP = l => clamp((F.block.v - l.bi * BLK_GAP) / BLK_W), blockN = () => BLOCKS.filter(l => blockP(l) >= .5).length;
+const BLK_GAP = .11, BLK_W = .23, BLK_AT = .3, blockP = l => clamp((F.block.v - l.bi * BLK_GAP) / BLK_W), blockN = () => BLOCKS.filter(l => blockP(l) > BLK_AT).length;
 const N_UNUSED = LINKS.filter(l => l.type === 'unused').length, PERMS = LINKS.filter(l => l.type === 'perm'), N_PERM = PERMS.length;
 PERMS.forEach((l, i) => l.k = i);
 const N_CROSS = LINKS.filter(l => l.type === 'cross').length;
@@ -505,7 +505,7 @@ const RO = {
   '2.4':['Flows mapped', () => `${count(F.flows.v * 1.15, NL)}`],
   '2.5':['High-risk paths', () => { const n = riskN(); return n >= RISKS.length ? `${n} found by AI` : n ? `${n} of ${RISKS.length} found by AI` : 'AI is scanning'; }],
   '3.1':['Paths closed', () => `${blockN()} of ${BLOCKS.length}`],
-  '3.2':['Environments separated', () => { const n = envN(); return n ? `${n} of 4 · ${['Dev', 'Test', 'Prod cloud', 'Prod data center'][n - 1]}` : 'Starting'; }],
+  '3.2':['Environments separated', () => { const n = envN(.02); return n ? `${n} of 4 · ${['Dev', 'Test', 'Prod cloud', 'Prod data center'][n - 1]}` : 'Starting'; }],
   '3.3':['Core services','DNS · NTP · LDAP · Identity'],
   '3.4':['Protect surfaces', () => `${count(F.protect.v * 1.2, CRITS.length)}`],
   '3.5':['Trust zones','7'],
@@ -820,7 +820,7 @@ function drawLinks(dt){
   for (const l of LINKS){
     const a = l.a, b = l.b;
     if (l.isBase && F.vPorts.v <= 0) l.vt = -1;
-    let p, alpha = 1, col = CER, width = 1.25, dash = null, cut = 0, pul = 1, tagA = 0, lp = 0;
+    let p, alpha = 1, col = CER, width = 1.25, dash = null, cut = 0, pul = 1, tagA = 0, lp = 0, burst = -1;
     switch (l.type){
       case 'legacy': p = eo(F.legacy.v); lp = lblP('5.2'); col = mix(mix(CER, GOLD, Math.max(F.legacy.hi, .25)), WHITE, .5 * lp); if (F.legacy.hi > .3) dash = [6, 4]; tagA = lblA('5.2', F.legacy.hi); width = 1.25 + F.legacy.hi + 2.6 * lp; break;
       case 'sneak': p = eo(F.sneak.v); alpha = p; lp = lblP('5.4'); col = mix(RED, WHITE, .5 * lp); dash = [6, 4]; width = 2 + 2.6 * lp; tagA = lblA('5.4', F.sneak.hi); break;
@@ -829,8 +829,8 @@ function drawLinks(dt){
       case 'doc': p = 1; alpha = F.vPorts.hi * clamp(F.vPorts.v * 9); cut = eo(clamp((F.vPorts.v - .72) / .2)); lp = lblP('5.1'); col = mix(mix([193,195,195], GOLD, .55), WHITE, .5 * lp); dash = [3, 5]; pul = 0; tagA = lblA('5.1', alpha); break;
       default: p = eo(stag(fv, l.ord, NL, 1.3));
     }
-    if (l.type === 'unused'){ const bp = blockP(l), fl = Math.sin(Math.PI * bp) * F.block.hi; dash = [3, 5]; alpha *= .6 + .4 * fl; pul = 0; cut = eo(clamp(bp * 2 - .6)); width += 2 * fl; if (F.block.hi > .1) col = mix(mix(CER, RED, F.block.hi), WHITE, .45 * fl); }
-    if (l.type === 'risk'){ const rk = riskA(l.k), live25 = cur === F.risk.on, ts = F.risk.v * RISK_T - riskAt(l.k); lp = live25 ? bump(ts) : 0; col = mix(mix(CER, RED, rk), WHITE, .55 * lp); width += rk + 2.8 * lp; const bp = blockP(l), fl = Math.sin(Math.PI * bp) * F.block.hi; cut = eo(clamp(bp * 2 - .6)); width += 2 * fl; col = mix(col, WHITE, .45 * fl); tagA = Math.max(F.risk.hi * (live25 ? clamp(ts / .1) : rk), F.block.hi * .9); }
+    if (l.type === 'unused'){ const bp = blockP(l), fl = Math.sin(Math.PI * bp) * F.block.hi; dash = [3, 5]; alpha *= .6 + .4 * fl; pul = 0; cut = eo(clamp((bp - BLK_AT) / .25)); width += 3 * fl; if (F.block.hi > .1) col = mix(mix(CER, RED, F.block.hi), WHITE, .4 * fl); if (cur === F.block.on && bp > BLK_AT) burst = (bp - BLK_AT) / (1 - BLK_AT); }
+    if (l.type === 'risk'){ const rk = riskA(l.k), live25 = cur === F.risk.on, ts = F.risk.v * RISK_T - riskAt(l.k); lp = live25 ? bump(ts) : 0; col = mix(mix(CER, RED, rk), WHITE, .55 * lp); width += rk + 2.8 * lp; const bp = blockP(l), fl = Math.sin(Math.PI * bp) * F.block.hi; cut = eo(clamp((bp - BLK_AT) / .25)); width += 3 * fl; col = mix(col, WHITE, .4 * fl); if (cur === F.block.on && bp > BLK_AT) burst = (bp - BLK_AT) / (1 - BLK_AT); tagA = Math.max(F.risk.hi * (live25 ? clamp(ts / .1) : rk), F.block.hi * .9); }
     if (l.type === 'cross'){ cut = eo(clamp(Math.max(envP(l.a.d), envP(l.b.d)) * 2 - 1)); col = mix(CER, GOLD, F.env.hi); }
     if (l.type === 'perm'){ cut = eo(clamp(tgp * 3 - l.k)); col = mix(CER, GOLD, F.tighten.hi * bandIn * (1 - cut)); if (F.tighten.hi > .2 && cut < .99) dash = [5, 4]; }
     const ghostA = l.isBase ? gh * .3 * (1 - p) : 0;
@@ -876,7 +876,7 @@ function drawLinks(dt){
       }
     }
     const mid = ptAt(G, .5);
-    if (cut > .02) markers.push({x:mid[0], y:mid[1], s:cut, col:l.type === 'doc' ? GOLD : RED, a:l.type === 'doc' ? alpha : 1});
+    if (cut > .02) markers.push({x:mid[0], y:mid[1], s:cut, col:l.type === 'doc' ? GOLD : RED, a:l.type === 'doc' ? alpha : 1, burst});
     if (l.type === 'risk' && cur === F.risk.on && !RM){ const t = F.risk.v * RISK_T - riskAt(l.k); if (t > 0 && t < 1.2) for (let j = 0; j < 2; j++){ const r = t - j * .22; if (r <= 0) continue; g.globalAlpha = clamp(1 - r / 1) * .85; g.strokeStyle = rgb(RED60); g.lineWidth = 2 - j * .6; g.beginPath(); g.arc(mid[0], mid[1], 9 + r * 34, 0, TAU); g.stroke(); } }
     if (l.type === 'sneak' && F.sneak.hi > .05){ g.globalAlpha = F.sneak.hi * (.4 + .4 * Math.sin(T * 6)); g.strokeStyle = rgb(RED60); g.lineWidth = 1.5; g.beginPath(); g.arc(mid[0], mid[1], 13, 0, TAU); g.stroke(); }
     const tp = l.type === 'sneak' ? ptAt(G, .22) : l.type === 'legacy' ? ptAt(G, .7) : mid;
@@ -1025,7 +1025,9 @@ function drawMarks(){
     if (b >= 0){ g.globalAlpha = c.a * (1 - b) * .85; g.strokeStyle = rgb(GREEN); g.lineWidth = 1.6; g.beginPath(); g.arc(c.x, c.y, 7 + b * 17, 0, TAU); g.stroke(); }
   }
   for (const m of markers){
-    const r = 7.5 * m.s; g.globalAlpha = m.s * (m.a === undefined ? 1 : m.a); g.fillStyle = rgb(C120); g.beginPath(); g.arc(m.x, m.y, r, 0, TAU); g.fill();
+    const bu = m.burst >= 0 && m.burst < 1 && !RM ? m.burst : -1, r = 7.5 * m.s * (bu >= 0 ? 1 + .45 * Math.sin(Math.PI * clamp(bu * 2.2)) : 1);
+    if (bu >= 0) for (let j = 0; j < 2; j++){ const q = clamp(bu * 1.25 - j * .2); if (q <= 0 || q >= 1) continue; g.globalAlpha = (1 - q) * .9; g.strokeStyle = rgb(m.col); g.lineWidth = 2; g.beginPath(); g.arc(m.x, m.y, 9 + q * 26, 0, TAU); g.stroke(); }
+    g.globalAlpha = m.s * (m.a === undefined ? 1 : m.a); g.fillStyle = rgb(C120); g.beginPath(); g.arc(m.x, m.y, r, 0, TAU); g.fill();
     g.strokeStyle = rgb(m.col); g.lineWidth = 1.8; g.stroke(); seg([m.x - r * .6, m.y + r * .6], [m.x + r * .6, m.y - r * .6]);
   }
   g.globalAlpha = 1;
@@ -1678,7 +1680,7 @@ function frame(ts){
   const bn = cur === F.block.on ? blockN() : 0; if (bn > prevBN) Music.sfx('block'); prevBN = bn;
   const fv = F.enforce.v; if (cur === F.enforce.on && prevFV < .5 && fv >= .5) Music.sfx('latch'); prevFV = fv;
   const zv = F.zones.v; if (cur === F.zones.on && prevZV < .5 && zv >= .5) Music.sfx('latch'); prevZV = zv;
-  const en = cur === F.env.on ? envN(.3) : 0; if (en > prevEN) Music.sfx('latch'); prevEN = en;
+  const en = cur === F.env.on ? envN(.02) : 0; if (en > prevEN) Music.sfx('latch'); prevEN = en;
   const rn = BEATS[cur].id === '2.5' ? riskN() : 0; if (rn > prevRN) Music.sfx('alert'); prevRN = rn;
   const pg = PING[BEATS[cur].id]; if (pg !== undefined && bt - dt < pg && bt >= pg) Music.sfx('alert');
   const nv = F.newNode.v; if (BEATS[cur].id === '7.3' && prevNV < .62 && nv >= .62){ quakeT = T; Music.sfx('thud'); } prevNV = nv;
