@@ -333,7 +333,7 @@ const FDEF = {
   blueprint:['0.0','1.0',1.0], wire:['1.0',null,1.6], platform:['1.1',null,1.0], ghost:['1.1','2.4',1.2],
   tools:['1.2','3.0',1.6], sensors:['1.2',null,2.2], team:['1.3','2.0',1.2],
   solid:['2.1',null,2.8], context:['2.2','3.0',1.8], struct:['2.3',null,2.6], flows:['2.4',null,2.8], risk:['2.5',null,9.2,1],
-  block:['3.1',null,5.6,null,1.6,.7], env:['3.2',null,5.4,null,1.6,.7], core:['3.3',null,1.4,null,null,.7], protect:['3.4',null,4.4,null,1.6,.7], zones:['3.5',null,1.6],
+  block:['3.1',null,5.6,null,1.6,.7], env:['3.2',null,5.4,null,1.6,.7], core:['3.3',null,1.4,null,null,.7], protect:['3.4',null,4.4,null,1.6,.7], zones:['3.5',null,2.6,null,1.6,.7],
   siem:['4.1',null,1.2], ztna:['4.2',null,1.2], vuln:['4.3',null,1.6], ot:['4.4',null,1.4],
   vPorts:['5.1','6.0',5.0], legacy:['5.2',null,1.4], vTime:['5.3','5.4',1.0], sneak:['5.4','5.5',1.2], sim:['5.5','6.0',1.4],
   enforce:['6.0',null,1.4], events:['6.1',null,1.2], spike:['6.2','6.3',1.0], intruder:['6.3','6.4',1.0], heat:['6.4','6.5',1.4,null,null,4.4], alerts:['6.5','7.0',7.2,.5],
@@ -367,6 +367,10 @@ const DKEYS = Object.keys(DIST);
 // 3.2: the environments separate one by one, in this order
 const ENV_SEQ = ['dev', 'test', 'cloud', 'dc'], ENV_GAP = .22, ENV_W = .34;
 const envP = k => { const i = ENV_SEQ.indexOf(k); return i < 0 ? 1 : clamp((F.env.v - i * ENV_GAP) / ENV_W); };
+// 3.5: the remaining zones (containers, then OT) separate one by one
+const ZONE_SEQ = ['k8s', 'ot'], ZONE_GAP = .45, ZONE_W = .55;
+const zoneP = k => { const i = ZONE_SEQ.indexOf(k); return i < 0 ? 1 : clamp((F.zones.v - i * ZONE_GAP) / ZONE_W); };
+const zoneN = () => ZONE_SEQ.filter(k => zoneP(k) > .02).length;
 const envN = (at = .5) => ENV_SEQ.filter(k => envP(k) >= at).length;
 const ND = [
  ['d1','dev',2,2,22],['d2','dev',4,2,30],['d3','dev',6,4,20],['d4','dev',2,5,26],['d5','dev',4,6,18],
@@ -703,7 +707,7 @@ function computeNodes(dt){
 
 function boundaryLevels(k){
   const d = DIST[k];
-  return {b: eo(d.at === 'env' ? envP(k) : F[d.at].v), tg: clamp((F.struct.v - .72) / .28), enf: eo(F.enforce.v)};
+  return {b: eo(d.at === 'env' ? envP(k) : d.at === 'zones' ? zoneP(k) : F[d.at].v), tg: clamp((F.struct.v - .72) / .28), enf: eo(F.enforce.v)};
 }
 const ring = (u, v, R) => { const [x, y] = iso(u, v); g.beginPath(); g.ellipse(x, y, R * 1.414 * A, R * 1.414 * B, 0, 0, TAU); g.stroke(); };
 function drawGround(){
@@ -772,6 +776,10 @@ function drawGround(){
     g.strokeStyle = rgb(d.col); g.lineWidth = 2; g.setLineDash([]);
     for (let j = 0; j < 2; j++){ const t = clamp(q * 1.3 - j * .28); if (t <= 0 || t >= 1) continue; g.globalAlpha = (1 - t) * .85 * F.env.hi; poly(rhomb(d.r, 0, .15 + t * 1.5)); g.stroke(); }
   });
+  // 3.5: each remaining zone flashes and sends out a ripple as its boundary goes up
+  if (F.zones.hi > .02) ZONE_SEQ.forEach(k => { const q = zoneP(k); if (q <= 0 || q >= 1) return; const d = DIST[k], fl = Math.sin(Math.PI * clamp(q * 1.6));
+    g.fillStyle = rgb(d.col); g.globalAlpha = .22 * fl * F.zones.hi; poly(rhomb(d.r)); g.fill(); g.strokeStyle = rgb(d.col); g.lineWidth = 2; g.setLineDash([]);
+    for (let j = 0; j < 2; j++){ const t = clamp(q * 1.3 - j * .28); if (t <= 0 || t >= 1) continue; g.globalAlpha = (1 - t) * .85 * F.zones.hi; poly(rhomb(d.r, 0, .15 + t * 1.5)); g.stroke(); } });
   // 3.3: core services flashes and sends out a ripple as its boundary goes up
   if (F.core.hi > .02 && F.core.v > 0 && F.core.v < 1){ const d = DIST.core, q = F.core.v, fl = Math.sin(Math.PI * clamp(q * 1.6));
     g.fillStyle = rgb(d.col); g.globalAlpha = .22 * fl * F.core.hi; poly(rhomb(d.r)); g.fill(); g.strokeStyle = rgb(d.col); g.lineWidth = 2; g.setLineDash([]);
@@ -1556,7 +1564,7 @@ function go(i){
   if (cur === F.env.on){ F.env.v = 0; prevEN = 0; }
   if (cur === F.block.on){ F.block.v = 0; prevBN = 0; }
   if (cur === F.core.on){ F.core.v = 0; prevCV = 0; }
-  if (cur === F.zones.on) prevZV = F.zones.v;
+  if (cur === F.zones.on){ F.zones.v = 0; prevZV = 0; }
   if (cur === F.enforce.on) prevFV = F.enforce.v;
   if (cur === F.protect.on){ F.protect.v = 0; prevPN = 0; }
   const b = BEATS[cur];
@@ -1689,7 +1697,7 @@ function frame(ts){
   const pn = cur === F.protect.on ? protN() : 0; if (pn > prevPN) Music.sfx('latch'); prevPN = pn;
   const bn = cur === F.block.on ? blockN() : 0; if (bn > prevBN) Music.sfx('block'); prevBN = bn;
   const fv = F.enforce.v; if (cur === F.enforce.on && prevFV < .5 && fv >= .5) Music.sfx('latch'); prevFV = fv;
-  const zv = F.zones.v; if (cur === F.zones.on && prevZV < .5 && zv >= .5) Music.sfx('latch'); prevZV = zv;
+  const zn = cur === F.zones.on ? zoneN() : 0; if (zn > prevZV) Music.sfx('latch'); prevZV = zn;
   const en = cur === F.env.on ? envN(.02) : 0; if (en > prevEN) Music.sfx('latch'); prevEN = en;
   const rn = BEATS[cur].id === '2.5' ? riskN() : 0; if (rn > prevRN) Music.sfx('alert'); prevRN = rn;
   const pg = PING[BEATS[cur].id]; if (pg !== undefined && bt - dt < pg && bt >= pg) Music.sfx('alert');
