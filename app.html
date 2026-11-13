@@ -1407,11 +1407,13 @@ class Engine {
     const ch = CH[this.ci || 0], S = this.L.sfx;
     if (name === 'tick'){ this.bell(t, ch.arp[2 + ((t * 10 | 0) % 3)] + 12, .5, .7, S); const s = this.nz(t, t + .3), bp = this.filt('bandpass', 2400, 1), e = this.env(t, .045, .05, .16); bp.frequency.setValueAtTime(1600, t); bp.frequency.exponentialRampToValueAtTime(5200, t + .2); s.connect(bp); bp.connect(e); e.connect(S); }
     else if (name === 'scan'){ const o = this.osc('sine', 500, t, t + 2), e = this.env(t, .05, .5, 1.3); o.frequency.setValueAtTime(500, t); o.frequency.exponentialRampToValueAtTime(2600, t + 1.8); o.connect(e); e.connect(S); this.riser(t, t + 1.6); }
-    else if (name === 'latch'){ // a latch: a sharp metal click, then the bolt seating
-      const c = this.nz(t, t + .06), cb = this.filt('bandpass', 3400, 3), ce = this.env(t, .26, .001, .025); c.connect(cb); cb.connect(ce); ce.connect(S);
-      const p = this.osc('sine', 2600, t, t + .08), pe = this.env(t, .05, .001, .05); p.frequency.setValueAtTime(2600, t); p.frequency.exponentialRampToValueAtTime(1900, t + .05); p.connect(pe); pe.connect(S);
-      const t2 = t + .075, s = this.nz(t2, t2 + .12), sb = this.filt('bandpass', 1100, 2.2), se = this.env(t2, .22, .001, .05); s.connect(sb); sb.connect(se); se.connect(S);
-      const b = this.osc('triangle', 210, t2, t2 + .14), be = this.env(t2, .16, .002, .07); b.frequency.setValueAtTime(210, t2); b.frequency.exponentialRampToValueAtTime(140, t2 + .08); b.connect(be); be.connect(S); }
+    else if (name === 'latch'){ // a lock: spring tick, bright bolt clack with a short metal ring, the bolt seating, then a soft chime in key. Clicks play dry so they stay crisp; nothing low.
+      const D = this.master, hit = (tt, f, q, peak, dec, dest) => { const s = this.nz(tt, tt + dec + .05), bp = this.filt('bandpass', f, q), e = this.env(tt, peak, .0008, dec); s.connect(bp); bp.connect(e); e.connect(dest); };
+      hit(t, 6200, 5, .1, .012, D);
+      const t1 = t + .018; hit(t1, 3800, 2.4, .3, .035, D); hit(t1, 2400, 1.4, .12, .02, D);
+      for (const [f, a] of [[2870, .045], [4310, .028]]){ const o = this.osc('sine', f, t1, t1 + .2), e = this.env(t1, a, .001, .14); o.connect(e); e.connect(D); }
+      hit(t + .048, 1500, 3, .16, .028, D);
+      this.bell(t + .06, ch.arp[0] + 24, .32, .45, S); }
     else if (name === 'block'){ const o = this.osc('square', 150, t, t + .25), lp = this.filt('lowpass', 700), e = this.env(t, .22, .002, .16); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(58, t + .14); o.connect(lp); lp.connect(e); e.connect(S); const o2 = this.osc('square', 120, t + .16, t + .45), lp2 = this.filt('lowpass', 700), e2 = this.env(t + .16, .18, .002, .18); o2.frequency.setValueAtTime(120, t + .16); o2.frequency.exponentialRampToValueAtTime(50, t + .3); o2.connect(lp2); lp2.connect(e2); e2.connect(S); }
     else if (name === 'alert'){ this.bell(t, 81, .8, .5, S); this.bell(t + .14, 88, .8, .7, S); }
     else if (name === 'thud'){ const o = this.osc('sine', 95, t, t + .6), e = this.c.createGain(); o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(34, t + .3); e.gain.setValueAtTime(.85, t); e.gain.exponentialRampToValueAtTime(.001, t + .5); o.connect(e); e.connect(S); const s = this.nz(t, t + .4), lp = this.filt('lowpass', 420), ne = this.env(t, .3, .003, .3); s.connect(lp); lp.connect(ne); ne.connect(S); }
