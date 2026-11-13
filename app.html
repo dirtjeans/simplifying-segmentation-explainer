@@ -318,6 +318,7 @@ function dur(i){
   const b = BEATS[i];
   if (b.kind === 'intro') return 9.5;
   if (b.id === '6.5') return 9.5;
+  if (b.id === '6.4') return 11.5;
   if (b.id === '2.5') return 11.5;
   if (b.kind === 'phase') return 6.5;
   if (b.kind === 'step'){ const w = (b.s[1] + ' ' + (b.s[2] ? b.s[2].join(' ') : '')).split(/\s+/).length; return clamp(4.6 + w * .15, 7, 12.5); }
@@ -335,11 +336,11 @@ const FDEF = {
   block:['3.1',null,1.6], env:['3.2',null,5.4,null,1.6], core:['3.3',null,1.4], protect:['3.4',null,1.6], zones:['3.5',null,1.6],
   siem:['4.1',null,1.2], ztna:['4.2',null,1.2], vuln:['4.3',null,1.6], ot:['4.4',null,1.4],
   vPorts:['5.1','6.0',5.0], legacy:['5.2',null,1.4], vTime:['5.3','5.4',1.0], sneak:['5.4','5.5',1.2], sim:['5.5','6.0',1.4],
-  enforce:['6.0',null,1.4], events:['6.1',null,1.2], spike:['6.2','6.3',1.0], intruder:['6.3','6.4',1.0], heat:['6.4','6.5',1.4], alerts:['6.5','7.0',7.2,.5],
+  enforce:['6.0',null,1.4], events:['6.1',null,1.2], spike:['6.2','6.3',1.0], intruder:['6.3','6.4',1.0], heat:['6.4','6.5',1.4,null,null,4.4], alerts:['6.5','7.0',7.2,.5],
   tighten:['7.1',null,7.2], load:['7.2','7.3',1.2], newNode:['7.3',null,3.0], loop:['7.4',null,1.4], final:['8.0',null,1.6]
 };
 const F = {};
-for (const k in FDEF){ const [a, b, d, od, fast] = FDEF[k]; F[k] = {v:0, ev:0, hi:0, on:BI[a], off:b ? BI[b] : Infinity, dur:d, od, fast}; }
+for (const k in FDEF){ const [a, b, d, od, fast, delay] = FDEF[k]; F[k] = {v:0, ev:0, hi:0, on:BI[a], off:b ? BI[b] : Infinity, dur:d, od, fast, delay}; }
 F.blueprint.v = F.blueprint.ev = 1;
 
 /* ---------- state ---------- */
@@ -540,6 +541,7 @@ function tightP(){ const x = clamp((F.tighten.v - .2) / .8) * 3, st = Math.floor
 const INTEG = {
   '4.1':{name:'SIEM / SOAR', kicker:'Security operations', out:['Events','Alerts','Policy changes'], back:['Automated playbooks'], gains:['Better visibility for your team','Playbooks respond faster']},
   '4.2':{name:'ZTNA', kicker:'', out:['Workload status'], back:['User access status'], gains:['Decisions reflect the workload','Not just the user']},
+  '6.4':{name:'Vulnerability scanner', kicker:'Asset and vulnerability data', out:['Segmentation data'], back:['Asset details','Vulnerability scores'], gains:['See where exposure is highest','Spot workloads acting out of pattern'], hold:4.6},
   '6.1':{name:'SIEM / SOAR', kicker:'Existing security workflow', out:['Segmentation events','Alerts'], back:['Automated response'], gains:['Faster detection and response','Less time for attackers']}
 };
 function cycIdx(){ const p = tlPos(); let b = 0, bd = 9; TL.forEach((t, i) => { const d = Math.abs(p - t); if (d < bd){ bd = d; b = i; } }); return b; }
@@ -1091,7 +1093,6 @@ function drawOverlays(){
     font(13 * fs, 700, false, .05); g.textBaseline = 'alphabetic';
     g.textAlign = 'left'; g.fillStyle = rgb(mix(WHITE, [193,195,195], tg)); g.fillText('PERMISSIVE', x0, y - 22);
     g.textAlign = 'right'; g.fillStyle = rgb(mix([193,195,195], WHITE, tg)); g.fillText('LEAST PRIVILEGE', x1, y - 22);
-    font(11 * fs, 400, true); g.textAlign = 'center'; g.fillStyle = rgb([193,195,195]); g.fillText(st ? 'STAGE ' + st + ' OF 3' : 'STARTING BROAD', (x0 + x1) / 2, y + 32);
     g.globalAlpha = 1;
   }
   // 6.3: a compromised workload tries to move and is stopped
@@ -1174,7 +1175,7 @@ function drawInteg(R, narrow){
   g.fillStyle = rgb(ORANGE); g.fillRect(sx, cy + 4, 3, chh - 8);
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   if (sp.kicker){ fitFont(sp.kicker.toUpperCase(), inner, 10.5, 700, .05); g.fillStyle = rgb(ORANGE); g.fillText(sp.kicker.toUpperCase(), sx + 21, cy + 24); }
-  font(30, 300); g.fillStyle = '#fff'; g.fillText(sp.name, sx + 20, cy + 42 + ko);
+  fitFont(sp.name, cw - 36, 30, 300); g.fillStyle = '#fff'; g.fillText(sp.name, sx + 20, cy + 42 + ko);
   g.strokeStyle = rgb(C90); g.lineWidth = 1; seg([sx + 21, cy + 55 + ko], [sx + cw - 21, cy + 55 + ko]);
   sp.gains.forEach((t, r) => {
     const ga = I * ce * eo((it - .9 - r * .25) / .5), y = cy + 78 + ko + r * 22; if (ga < .02) return;
@@ -1646,7 +1647,7 @@ function frame(ts){
   T += dt; bt += dt;
   if (auto){ at += dt; if (at >= dur(cur)) go(cur + 1); }
   for (const k in F){
-    const f = F[k], tgt = cur >= f.on && cur < f.off ? 1 : 0;
+    const f = F[k], tgt = cur >= f.on && cur < f.off && !(f.delay && cur === f.on && bt < f.delay) ? 1 : 0;
     if (f.v !== tgt) f.v = tgt ? Math.min(1, f.v + dt / (f.fast && cur !== f.on ? f.fast : f.dur)) : Math.max(0, f.v - dt / (f.od || f.dur * .55));
     if (tgt) f.ev = f.v;
     f.hi += ((cur === f.on ? 1 : 0) - f.hi) * (1 - Math.exp(-dt * 4.5));
@@ -1661,7 +1662,7 @@ function frame(ts){
   const rn = BEATS[cur].id === '2.5' ? riskN() : 0; if (rn > prevRN) Music.sfx('alert'); prevRN = rn;
   const pg = PING[BEATS[cur].id]; if (pg !== undefined && bt - dt < pg && bt >= pg) Music.sfx('alert');
   const nv = F.newNode.v; if (BEATS[cur].id === '7.3' && prevNV < .62 && nv >= .62){ quakeT = T; Music.sfx('thud'); } prevNV = nv;
-  const want = INTEG[BEATS[cur].id];
+  const want = (sp => sp && !(sp.hold && bt > sp.hold) ? sp : null)(INTEG[BEATS[cur].id]);
   if (want && integId !== BEATS[cur].id){ integId = BEATS[cur].id; integSpec = want; integT = 0; }
   if (!want && integA < .01) integId = '';
   integA += ((want ? 1 : 0) - integA) * (1 - Math.exp(-dt * 3.4)); integT += dt;
