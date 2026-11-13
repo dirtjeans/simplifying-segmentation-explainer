@@ -333,7 +333,7 @@ const FDEF = {
   blueprint:['0.0','1.0',1.0], wire:['1.0',null,1.6], platform:['1.1',null,1.0], ghost:['1.1','2.4',1.2],
   tools:['1.2','3.0',1.6], sensors:['1.2',null,2.2], team:['1.3','2.0',1.2],
   solid:['2.1',null,2.8], context:['2.2','3.0',1.8], struct:['2.3',null,2.6], flows:['2.4',null,2.8], risk:['2.5',null,9.2,1],
-  block:['3.1',null,1.6], env:['3.2',null,5.4,null,1.6], core:['3.3',null,1.4], protect:['3.4',null,1.6], zones:['3.5',null,1.6],
+  block:['3.1',null,1.6], env:['3.2',null,5.4,null,1.6], core:['3.3',null,1.4], protect:['3.4',null,3.4,null,1.6], zones:['3.5',null,1.6],
   siem:['4.1',null,1.2], ztna:['4.2',null,1.2], vuln:['4.3',null,1.6], ot:['4.4',null,1.4],
   vPorts:['5.1','6.0',5.0], legacy:['5.2',null,1.4], vTime:['5.3','5.4',1.0], sneak:['5.4','5.5',1.2], sim:['5.5','6.0',1.4],
   enforce:['6.0',null,1.4], events:['6.1',null,1.2], spike:['6.2','6.3',1.0], intruder:['6.3','6.4',1.0], heat:['6.4','6.5',1.4,null,null,4.4], alerts:['6.5','7.0',7.2,.5],
@@ -346,7 +346,7 @@ F.blueprint.v = F.blueprint.ev = 1;
 /* ---------- state ---------- */
 let cur = 0, auto = false, manual = false, paused = false, started = false, at = 0, bt = 0, T = 0, GT = 0, TLT = 0, LAPSE = 0, lapseFrame = 0;
 const LFPS = 13, h1 = x => { const q = Math.sin(x * 127.1 + 311.7) * 43758.5453; return q - Math.floor(q); };
-let quakeT = -9, prevEN = 0, prevNV = 0, prevAN = 0, prevRN = 0, endT = 0, wipe = 0, integA = 0, integT = 0, integId = '', integSpec = null, tStage = 0, tDone = true;
+let quakeT = -9, prevFV = 0, prevZV = 0, prevPN = 0, prevCV = 0, prevEN = 0, prevNV = 0, prevAN = 0, prevRN = 0, endT = 0, wipe = 0, integA = 0, integT = 0, integId = '', integSpec = null, tStage = 0, tDone = true;
 
 /* ====================================================================
    WORLD: an isometric city of workloads
@@ -1461,7 +1461,7 @@ const Music = {
   },
   vis(){ if (!this.ctx) return; if (document.hidden) this.ctx.suspend().catch(() => {}); else if (!this.paused) this.ctx.resume().catch(() => {}); }
 };
-const SFX = {'2.1':'scan','2.5':'scan','3.1':'latch','5.5':'ok','7.2':'ok','7.3':'scan'};
+const SFX = {'2.1':'scan','2.5':'scan','3.1':'block','5.5':'ok','7.2':'ok','7.3':'scan'};
 function ensureAudio(){ try { Music.start(); } catch (e) {} }
 document.addEventListener('visibilitychange', () => Music.vis());
 
@@ -1541,6 +1541,10 @@ function go(i){
   i = clamp(i, 0, LAST); if (i === cur) return;
   const prev = BEATS[cur]; cur = i; at = 0; bt = 0;
   if (cur === F.env.on){ F.env.v = 0; prevEN = 0; }
+  if (cur === F.core.on) prevCV = F.core.v;
+  if (cur === F.zones.on) prevZV = F.zones.v;
+  if (cur === F.enforce.on) prevFV = F.enforce.v;
+  if (cur === F.protect.on) prevPN = CRITS.filter((n, j) => eo(stag(F.protect.v, j, CRITS.length, .8)) >= .5).length;
   const b = BEATS[cur];
   if (b.kind === 'title' || b.kind === 'outro') auto = false; else auto = started && !manual && !paused;
   renderView(b); updateRail(); ui();
@@ -1667,6 +1671,10 @@ function frame(ts){
   else wipe = Math.max(0, wipe - dt * 1.9);
   endT = BEATS[cur].kind === 'outro' ? endT + dt : 0;
   const an = BEATS[cur].id === '6.5' ? alertN() : 0; if (an > prevAN) Music.sfx('alert'); prevAN = an;
+  const coreV = F.core.v; if (cur === F.core.on && prevCV < .5 && coreV >= .5) Music.sfx('latch'); prevCV = coreV;
+  const pn = cur === F.protect.on ? CRITS.filter((n, i) => eo(stag(F.protect.v, i, CRITS.length, .8)) >= .5).length : 0; if (pn > prevPN) Music.sfx('latch'); prevPN = pn;
+  const fv = F.enforce.v; if (cur === F.enforce.on && prevFV < .5 && fv >= .5) Music.sfx('latch'); prevFV = fv;
+  const zv = F.zones.v; if (cur === F.zones.on && prevZV < .5 && zv >= .5) Music.sfx('latch'); prevZV = zv;
   const en = cur === F.env.on ? envN() : 0; if (en > prevEN) Music.sfx('latch'); prevEN = en;
   const rn = BEATS[cur].id === '2.5' ? riskN() : 0; if (rn > prevRN) Music.sfx('alert'); prevRN = rn;
   const pg = PING[BEATS[cur].id]; if (pg !== undefined && bt - dt < pg && bt >= pg) Music.sfx('alert');
