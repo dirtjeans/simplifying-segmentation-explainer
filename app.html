@@ -333,7 +333,7 @@ const FDEF = {
   blueprint:['0.0','1.0',1.0], wire:['1.0',null,1.6], platform:['1.1',null,1.0], ghost:['1.1','2.4',1.2],
   tools:['1.2','3.0',1.6], sensors:['1.2',null,2.2], team:['1.3','2.0',1.2],
   solid:['2.1',null,2.8], context:['2.2','3.0',1.8], struct:['2.3',null,2.6], flows:['2.4',null,2.8], risk:['2.5',null,9.2,1],
-  block:['3.1',null,5.6,null,1.6,.7], env:['3.2',null,5.4,null,1.6,.7], core:['3.3',null,1.4], protect:['3.4',null,3.4,null,1.6], zones:['3.5',null,1.6],
+  block:['3.1',null,5.6,null,1.6,.7], env:['3.2',null,5.4,null,1.6,.7], core:['3.3',null,1.4], protect:['3.4',null,4.4,null,1.6,.7], zones:['3.5',null,1.6],
   siem:['4.1',null,1.2], ztna:['4.2',null,1.2], vuln:['4.3',null,1.6], ot:['4.4',null,1.4],
   vPorts:['5.1','6.0',5.0], legacy:['5.2',null,1.4], vTime:['5.3','5.4',1.0], sneak:['5.4','5.5',1.2], sim:['5.5','6.0',1.4],
   enforce:['6.0',null,1.4], events:['6.1',null,1.2], spike:['6.2','6.3',1.0], intruder:['6.3','6.4',1.0], heat:['6.4','6.5',1.4,null,null,4.4], alerts:['6.5','7.0',7.2,.5],
@@ -409,6 +409,8 @@ const REAL = NODES.filter(n => !n.isNew), NN = REAL.length;
   REAL.forEach((n, i) => { n.r0 = a[i]; n.r1 = b[i]; });
 })();
 const CRITS = NODES.filter(n => n.crit);
+// 3.4 walls off each critical asset in turn
+const PROT_GAP = .22, PROT_W = .34, protP = i => clamp((F.protect.v - i * PROT_GAP) / PROT_W), protN = () => CRITS.filter((n, i) => protP(i) > .02).length;
 const LD = [
  ['d1','d2'],['d2','d3'],['d1','d4'],['d4','d5'],['d3','d5','unused'],
  ['c1','c2'],['c2','c3'],['c1','c4'],['c4','ehr'],['ehr','c5'],['c4','c6'],['c3','c5','perm'],
@@ -507,7 +509,7 @@ const RO = {
   '3.1':['Paths closed', () => `${blockN()} of ${BLOCKS.length}`],
   '3.2':['Environments separated', () => { const n = envN(.02); return n ? `${n} of 4 · ${['Dev', 'Test', 'Prod cloud', 'Prod data center'][n - 1]}` : 'Starting'; }],
   '3.3':['Core services','DNS · NTP · LDAP · Identity'],
-  '3.4':['Protect surfaces', () => `${count(F.protect.v * 1.2, CRITS.length)}`],
+  '3.4':['Protect surfaces', () => `${protN()} of ${CRITS.length}`],
   '3.5':['Trust zones','7'],
   '4.1':['Sending','Events · Alerts · Policy changes'],
   '4.2':['Sharing','Workload status with ZTNA'],
@@ -747,8 +749,12 @@ function drawGround(){
   }
   // protect surfaces (ground + back walls)
   const tight = tightP();
+  // 3.4: a ring pulses out from each asset as its wall starts to rise
+  if (F.protect.hi > .02 && !RM) CRITS.forEach((n, i) => { const q = protP(i); if (q <= 0 || q >= 1) return;
+    g.strokeStyle = rgb(ORANGE); g.lineWidth = 2; g.setLineDash([]);
+    for (let j = 0; j < 2; j++){ const t = clamp(q * 1.3 - j * .28); if (t <= 0 || t >= 1) continue; g.globalAlpha = (1 - t) * .85 * F.protect.hi; poly(rhomb([n.cu - 1.1, n.cv - 1.1, n.cu + 1.1, n.cv + 1.1], 0, .1 + t * 1.6)); g.stroke(); } });
   CRITS.forEach((n, i) => {
-    const b = eo(stag(F.protect.v, i, CRITS.length, .8)); if (b < .01) return;
+    const b = eo(protP(i)); if (b < .01) return;
     const R = 1.12 - .16 * tight, p = rhomb([n.cu - R, n.cv - R, n.cu + R, n.cv + R]), hw = 17 * b;
     g.globalAlpha = .13 * b; g.fillStyle = rgb(ORANGE); poly(p); g.fill();
     g.strokeStyle = rgb(ORANGE);
@@ -793,7 +799,7 @@ function drawFrontWalls(){
   }
   const tight = tightP();
   CRITS.forEach((n, i) => {
-    const b = eo(stag(F.protect.v, i, CRITS.length, .8)); if (b < .01) return;
+    const b = eo(protP(i)); if (b < .01) return;
     const R = 1.12 - .16 * tight, p = rhomb([n.cu - R, n.cv - R, n.cu + R, n.cv + R]), hw = 17 * b;
     g.fillStyle = rgb(ORANGE); g.strokeStyle = rgb(ORANGE);
     for (const [a, c] of [[3, 2], [2, 1]]){ g.globalAlpha = .16 * b; poly([p[a], p[c], [p[c][0], p[c][1] - hw], [p[a][0], p[a][1] - hw]]); g.fill(); g.globalAlpha = .9 * b; g.lineWidth = 1.3; seg([p[a][0], p[a][1] - hw], [p[c][0], p[c][1] - hw]); }
@@ -942,7 +948,7 @@ function drawCubes(){
     }
     // name tags
     let ta = 0, col = ORANGE;
-    if (n.crit) ta = Math.max(eo(F.protect.v) * (1 - .5 * n.dim), 0);
+    if (n.crit) ta = Math.max(eo(protP(CRITS.indexOf(n)) * 3) * (1 - .5 * n.dim), 0);
     else if (n.core){ ta = Math.max(F.core.hi, F.intruder.hi * (n.id === 'idp' ? 1 : 0)); col = TAN; }
     else if (n.otTag){ ta = F.ot.hi; col = CHART; }
     if (ta > .03 && n.tag) tags.push({x:c.x, y:ty - c.q - 12, t:n.tag, a:ta, col, lead:9});
@@ -1548,7 +1554,7 @@ function go(i){
   if (cur === F.core.on) prevCV = F.core.v;
   if (cur === F.zones.on) prevZV = F.zones.v;
   if (cur === F.enforce.on) prevFV = F.enforce.v;
-  if (cur === F.protect.on) prevPN = CRITS.filter((n, j) => eo(stag(F.protect.v, j, CRITS.length, .8)) >= .5).length;
+  if (cur === F.protect.on){ F.protect.v = 0; prevPN = 0; }
   const b = BEATS[cur];
   if (b.kind === 'title' || b.kind === 'outro') auto = false; else auto = started && !manual && !paused;
   renderView(b); updateRail(); ui();
@@ -1676,7 +1682,7 @@ function frame(ts){
   endT = BEATS[cur].kind === 'outro' ? endT + dt : 0;
   const an = BEATS[cur].id === '6.5' ? alertN() : 0; if (an > prevAN) Music.sfx('alert'); prevAN = an;
   const coreV = F.core.v; if (cur === F.core.on && prevCV < .5 && coreV >= .5) Music.sfx('latch'); prevCV = coreV;
-  const pn = cur === F.protect.on ? CRITS.filter((n, i) => eo(stag(F.protect.v, i, CRITS.length, .8)) >= .5).length : 0; if (pn > prevPN) Music.sfx('latch'); prevPN = pn;
+  const pn = cur === F.protect.on ? protN() : 0; if (pn > prevPN) Music.sfx('latch'); prevPN = pn;
   const bn = cur === F.block.on ? blockN() : 0; if (bn > prevBN) Music.sfx('block'); prevBN = bn;
   const fv = F.enforce.v; if (cur === F.enforce.on && prevFV < .5 && fv >= .5) Music.sfx('latch'); prevFV = fv;
   const zv = F.zones.v; if (cur === F.zones.on && prevZV < .5 && zv >= .5) Music.sfx('latch'); prevZV = zv;
